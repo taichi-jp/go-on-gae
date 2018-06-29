@@ -9,5 +9,14 @@
 <h1>The Gopher Network</h1>
 
 <img id="logo" src="/static/gcp-gopher.svg" width="100">
+
+
+{{with .Notice}}<div id="notice">{{.}}</div>{{end}}
+
+<form action="/" method="post">
+  <div>Name: <input name="name" value="{{.Name}}"></div>
+  <div>Message: <input name="message"></div>
+  <input type="submit">
+</form>
 </body>
 </html>
