@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 
 	"google.golang.org/appengine"
@@ -16,7 +15,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	fmt.Fprintln(w, "Hello, Gopher Network!")
 }
 
 func main() {
