@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"time"
 
-	"google.golang.org/appengine"
 	// Required external App Engine library
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/datastore"
+	"google.golang.org/appengine/log"
 )
 
 var (
@@ -14,8 +17,16 @@ var (
 )
 
 type templateParams struct {
-	Notice string
-	Name   string
+	Notice  string
+	Name    string
+	Message string
+	Posts   []Post
+}
+
+type Post struct {
+	Author  string
+	Message string
+	Posted  time.Time
 }
 
 func main() {
@@ -32,7 +43,21 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: context.Contextとは?
+	ctx := appengine.NewContext(r)
+
 	params := templateParams{}
+
+	q := datastore.NewQuery("Post").Order("-Posted") //.Limit(20)
+
+	// データ取得
+	if _, err := q.GetAll(ctx, &params.Posts); err != nil {
+		log.Errorf(ctx, "Getting posts: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		params.Notice = "Couldn't get latest posts. Refresh?"
+		indexTemplate.Execute(w, params)
+		return
+	}
 
 	if r.Method == "GET" {
 		indexTemplate.Execute(w, params)
@@ -40,6 +65,12 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// It's a POST request, so handle the form submission.
+
+	post := Post{
+		Author:  r.FormValue("name"),
+		Message: r.FormValue("message"),
+		Posted:  time.Now(),
+	}
 
 	name := r.FormValue("name")
 	params.Name = name
@@ -55,7 +86,20 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: save the message into a database.
+	key := datastore.NewIncompleteKey(ctx, "Post", nil)
+
+	// データ保存
+	if _, err := datastore.Put(ctx, key, &post); err != nil {
+		log.Errorf(ctx, "datastore.Put: %v", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		params.Notice = "Couldn't add new post. Try again?"
+		params.Message = post.Message // Preserve their message so they can try again.
+		indexTemplate.Execute(w, params)
+		return
+	}
+
+	params.Posts = append([]Post{post}, params.Posts...)
 
 	params.Notice = fmt.Sprintf("Thank you for your submission, %s!", name)
 	indexTemplate.Execute(w, params)
